@@ -1,0 +1,1 @@
+# triangle-peg-solitaire
