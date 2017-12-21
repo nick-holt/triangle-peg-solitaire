@@ -181,6 +181,7 @@ simulate_peg_game <- function(){
 }
 
 # simulate 100 games
+set.seed(122)
 peg_data <- rep(NA, 100)
 reps <- 1:100
 for(i in seq_along(reps)){
@@ -192,10 +193,58 @@ outcomes <- data.frame(peg_data)
 # plot outcomes
 ggplot(outcomes, aes(outcomes)) +
         geom_histogram(binwidth = 1, aes(fill = ..count..)) +
-        scale_fill_gradient("Count", low = "skyblue4", high = "skyblue3")
+        scale_fill_gradient("Count", low = "skyblue4", high = "skyblue3") + 
+        xlab("\nNumber of Pegs Remaining") +
+        ylab("Count\n") +
+        theme(legend.position="none")
 
-# Step 2: Format Data for Reinforcement Learning
+        # I'm unaware of the history of the game's development (so this could 
+        # be intentional), but it looks like the scoring system listed on the 
+        # game board is surprisingly insightful. 
 
+        outcome_sum <- outcomes %>%
+                group_by(peg_data) %>%
+                summarize(n = n(),
+                          pct = n/100)
+        
+        # Here are the probabilities of the outcomes based on a random 
+        # guessing strategy
+        
+        # - - - - - - - - - - - - - - -
+        # Pegs Remaining | Probability
+        # - - - - - - - - - - - - - - - 
+        # 1              | .01
+        # 2              | .14
+        # 3              | .17
+        # 4              | .49
+        # 5              | .17
+        # 6              | .02
+        # - - - - - - - - - - - - - - -
+        
+        # We can see from the table that the probability corresponding with
+        # the worst score (4+ remaining) will occur 68% of the time using a 
+        # random strategy, and the best score (1 remaining) is quite rare (1%)
+        # when guessing.
+        
+        # This simulation provides at least some evidence that the game is not 
+        # trivially easy to beat. The goal in the remainder of this project is
+        # to train a machine learning system to beat the triangle peg solitaire game,
+        # which will reveal the optimal strategy that a human player should adopt.
+        
+
+# Profiling the simulation function to look for bottlenecks
+Rprof("sim.out")
+simulate_peg_game()
+Rprof(NULL)
+
+prof_sum <- summaryRprof("sim.out")
+        
+        # definitely room for improvement at a later time
+
+
+#--------------------------------------------------------
+# Step 2: Format Virtual Game for Reinforcement Learning
+#--------------------------------------------------------
 
 
 # Step 3: Train Agent to Play Game
