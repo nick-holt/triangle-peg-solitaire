@@ -180,6 +180,10 @@ simulate_peg_game <- function(){
         return(remaining_pegs)
 }
 
+#--------------------------------------
+# Simulate and Analyze Game Properties
+#--------------------------------------
+
 # simulate 100 games
 set.seed(122)
 peg_data <- rep(NA, 100)
@@ -202,10 +206,13 @@ ggplot(outcomes, aes(outcomes)) +
         # be intentional), but it looks like the scoring system listed on the 
         # game board is surprisingly insightful. 
 
-        outcome_sum <- outcomes %>%
-                group_by(peg_data) %>%
-                summarize(n = n(),
-                          pct = n/100)
+        # outcome summary table
+        outcomes.t <- outcomes
+        colnames(outcomes.t) <- "Result"
+        outcome_sum <- outcomes.t %>%
+                group_by(Result) %>%
+                summarize(Count = n(),
+                          Probability = Count/100)
         
         # Here are the probabilities of the outcomes based on a random 
         # guessing strategy
@@ -221,16 +228,22 @@ ggplot(outcomes, aes(outcomes)) +
         # 6              | .02
         # - - - - - - - - - - - - - - -
         
-        # We can see from the table that the probability corresponding with
-        # the worst score (4+ remaining) will occur 68% of the time using a 
-        # random strategy, and the best score (1 remaining) is quite rare (1%)
-        # when guessing.
+        # We can see from the table that the worst score (4+ remaining) will occur
+        # 68% of the time under a random strategy, and the best score (1 remaining) 
+        # is quite rare (1% occurence) when guessing.
         
         # This simulation provides at least some evidence that the game is not 
         # trivially easy to beat. The goal in the remainder of this project is
         # to train a machine learning system to beat the triangle peg solitaire game,
         # which will reveal the optimal strategy that a human player should adopt.
         
+        # **This data is based on the open position being the slot directly below the
+        # slot at the top of the triangle. It would be interesting to examine if/how 
+        # changing the open slot at the beginning of the game affects the outcomes.
+        
+#---------------------------
+# Profiling Sim Function
+#---------------------------
 
 # Profiling the simulation function to look for bottlenecks
 Rprof("sim.out")
@@ -246,6 +259,58 @@ prof_sum <- summaryRprof("sim.out")
 # Step 2: Format Virtual Game for Reinforcement Learning
 #--------------------------------------------------------
 
+# install and load the reinforcement learning package
+devtools::install_github("nproellochs/ReinforcementLearning")
+
+library(ReinforcementLearning)
+
+        # From the CRAN Description:
+
+        # "The ReinforcementLearning package uses experience replay to learn 
+        # an optimal policy based on past experience in the form of sample sequences 
+        # consisting of states, actions and rewards. Here each training example consists 
+        # of a state transition tuple (s,a,r,s_new), as described ibelow.
+
+                # s The current environment state.
+                # a The selected action in the current state.
+                # r The immediate reward received after transitioning from the current state to the next state.
+                # s_new The next environment state.
+
+        # Note:
+                # The input data must be a dataframe in which each 
+                # row represents a state transition tuple (s,a,r,s_new)."
+
+#------------------------------------------
+# Create list of all possible game states
+#------------------------------------------
+
+# Since the game board can be represented as 15 positions, each with
+# two possible states (0 or 1), we can create a list of all possible states
+# by generating all possible 15-bit binary sequences (excluding the cases where
+# all positions equal 0 or 1, because there are only 14 pegs, and the game ense
+# when there is one peg remaining).
+
+# Theoretically, then, there are 2^15 possible game states. Of course, some
+# other game states may be impossible, but there's no need to
+# simulate thousands of games to find out. 
+
+# calculate number of states
+2^15 - 2 # number of states
+         
+         # 0 and 2^15 are invalid game states
+         # range is 1:32766
+
+# generate all 15-digit binary combinations
+states <- NULL
+for(i in 1:32766){
+        x <- intToBits(i)[1:15]
+        states <- rbind(states, x)
+}
+states <- data.frame(states)
+
+#-------------------------------
+#
+#-------------------------------
 
 # Step 3: Train Agent to Play Game
 
