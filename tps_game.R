@@ -7,6 +7,7 @@
 #----------------------------------------------------------
 
 library(tidyverse)
+library(stringr)
 
 #---------------
 # The game
@@ -67,10 +68,9 @@ for(i in 1:32766){
 states <- data.frame(states)
 states <- map(states, as.numeric)
 states <- data.frame(states)
-write_csv(states, "game_states.csv")
+# write_csv(states, "game_states.csv")
 
 # create game states represented as strings
-library(stringr)
 states <- read_csv("game_states.csv")
 
 state_list <- NULL
@@ -125,9 +125,9 @@ legal_moves <- function(x, y){
         return(moves)
 }
 
-# get all possible legal moves based on game board
+# Create list of all possible legal moves based on game board
 list_of_legal_moves <- NULL
-
+board <- initialize_game()
 for(i in seq_along(board$x)){
         x <- board$x[i]
         y <- board$y[i]
@@ -139,9 +139,17 @@ for(i in seq_along(board$x)){
 
         # there are 38 legal actions, depending on the state of the game board
 
+# Complete action dictionary with action_id for each unique action for reinforcement learning
+action_dictionary <- list_of_legal_moves %>%
+        mutate(begin_id = str_c(begin_x, begin_y),
+               end_id = str_c(end_x, end_y),
+               action_id = str_c(begin_x, begin_y, end_x, end_y)
+               ) %>%
+        select(begin_id, end_id, action_id)
+
 # function that checks game state, and provides list of currently available moves (actions)
 check_valid_moves <- function(game_board){
-        empty_slots <- which(board$peg == 0)
+        empty_slots <- which(game_board$peg == 0)
         begin_slots <- NULL
         for(i in seq_along(empty_slots)){
                 x <- game_board$x[empty_slots[i]]
@@ -187,18 +195,21 @@ check_valid_moves <- function(game_board){
         actions <- actions[peg_between$action_index,] %>% 
                 mutate(begin_id = paste0(begin_x, begin_y)) %>%
                 mutate(begin_id = as.numeric(begin_id)) %>%
-                filter(begin_id %in% game_board$id[game_board$peg == 1])
+                filter(begin_id %in% game_board$id[game_board$peg == 1]) %>%
+                mutate(action_id = str_c(begin_id, end_id))
         # return actions
         return(actions)
 }
 
-selected_action <- sample_n(check_valid_moves(board), 1)
+# selected_action <- sample_n(check_valid_moves(board), 1)
 
 # function that updates board based on a move that is selected
 update_state <- function(game_board, action){
+        # action
         action <- action %>% 
                 mutate(begin_id = paste0(begin_x, begin_y)) %>%
                 mutate(begin_id = as.numeric(begin_id))
+        
         action$peg_between <- paste0(action[1,3] + ((action[1,1] - action[1,3])/2),
                               action[1,4] + ((action[1,2] - action[1,4])/2)
                               )
@@ -208,9 +219,9 @@ update_state <- function(game_board, action){
         return(game_board)
 }
         
-board <- update_state(board, selected_action)
+# board <- update_state(board, selected_action)
 
-# simulate game
+# simulate peg game and return pegs remaining
 simulate_peg_game <- function(){
         board <- initialize_game()
         remaining_pegs <- NULL
@@ -237,12 +248,13 @@ for(i in seq_along(reps)){
 outcomes <- data.frame(peg_data)
 
 # plot outcomes
-ggplot(outcomes, aes(outcomes)) +
+ggplot(outcomes, aes(peg_data)) +
         geom_histogram(binwidth = 1, aes(fill = ..count..)) +
         scale_fill_gradient("Count", low = "skyblue4", high = "skyblue3") + 
         xlab("\nNumber of Pegs Remaining") +
         ylab("Count\n") +
-        theme(legend.position="none")
+        theme(legend.position="none") +
+        scale_x_continuous(breaks = 1:10)
 
         # I'm unaware of the history of the game's development (so this could 
         # be intentional), but it looks like the scoring system listed on the 
@@ -298,7 +310,7 @@ prof_sum <- summaryRprof("sim.out")
 
 
 #--------------------------------------------------------
-# Step 2: Format Virtual Game for Reinforcement Learning
+# Step 2: Format Virtual Game Data for Reinforcement Learning
 #--------------------------------------------------------
 
 # install and load the reinforcement learning package
@@ -311,7 +323,7 @@ library(ReinforcementLearning)
         # "The ReinforcementLearning package uses experience replay to learn 
         # an optimal policy based on past experience in the form of sample sequences 
         # consisting of states, actions and rewards. Here each training example consists 
-        # of a state transition tuple (s,a,r,s_new), as described ibelow.
+        # of a state transition tuple (s,a,r,s_new), as described below.
 
                 # s The current environment state.
                 # a The selected action in the current state.
@@ -322,14 +334,73 @@ library(ReinforcementLearning)
                 # The input data must be a dataframe in which each 
                 # row represents a state transition tuple (s,a,r,s_new)."
 
+# Reward engineering
 
+        # A key question I have in designing the reinforcement learning system
+        # is how to decide what reward structure to use. It seems that an arbitrary
+        # reward structure is not the best approach.
+
+        # Since reinforcement learning optimizes for sparse time-delayed rewards,
+        # it may be best to only reward the agent with the final score for the round
+
+                # Possible Reward Structure:
+                
+                # 1 peg remaining: 8 points
+                # 2 pegs remaining: 4 points
+                # 3 pegs remaining: 2 points
+                # 4 pegs remaining: 1 point
+                # 5+ pegs remaining: 0 points
+
+
+                # Alternative Reward Structure:
+                
+                # 1 peg remaining: 1 points
+                # 2+ pegs remaining: -1 points
+
+
+# simulate game and record log of game states with actions and rewards
+simlog_peg_game <- function(){
+        board <- initialize_game()
+        game_log <- NULL
+        move <- 0
+        while(nrow(check_valid_moves(board)) != 0){
+                move <- move + 1
+                # record begin state
+                begin_state <- str_c(board[,3], collapse = "")
+                # find valid moves
+                valid_moves <- check_valid_moves(board)
+                # randomly select an action from the list of available actions
+                selected_action <- sample_n(valid_moves, 1)
+                # record the action_id of the selected action
+                action_id <- selected_action$action_id
+                # update the board based on the selected action
+                board <- update_state(board, selected_action)
+                # record end state after action
+                end_state <- str_c(board[,3], collapse = "")
+                # calculate remaining pegs
+                remaining_pegs <- sum(board$peg)
+                # update game log
+                game_log <- rbind(game_log, cbind(move, begin_state, action_id, end_state, remaining_pegs))
+        }
+        # calculate reward
+        game_log <- data.frame(game_log)
+        game_log$reward <- 0
+        game_log$reward[length(game_log$reward)] <- ifelse(game_log$remaining_pegs[length(game_log$remaining_pegs)] == 1, 1, -1)
+        return(game_log)
+}
 
 
 #-------------------------------
 # simulate lots of games and record current state (s), action selected (a), reward received (r), and next state (s_new)
 #-------------------------------
+set.seed(1518)
+pegsolitaire <- NULL
+reps <- 1:100
+for(i in seq_along(reps)){
+        pegsolitaire <- rbind(pegsolitaire, simlog_peg_game())
+}
 
-
+        
 
 
 # Step 3: Train Agent to Play Game
