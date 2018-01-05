@@ -38,6 +38,48 @@ library(tidyverse)
 # system as a guide for the reinforcement learning algorithm's reward, and hopefully by
 # the end of the exercise, I will have created an agent that is not "just plain dumb."
 
+#------------------------------------------
+# Prequel: Create list of all possible game states
+#------------------------------------------
+
+# Since the game board can be represented as 15 positions, each with
+# two possible states (0 or 1), we can create a list of all possible states
+# by generating all possible 15-bit binary sequences (excluding the cases where
+# all positions equal 0 or 1, because there are only 14 pegs, and the game ense
+# when there is one peg remaining).
+
+# Theoretically, then, there are 2^15 possible game states. Of course, some
+# other game states may be impossible, but there's no need to
+# simulate thousands of games to find out. 
+
+# calculate number of states
+2^15 - 2 # number of states
+
+# 0 and 2^15 are invalid game states
+# range is 1:32766
+
+# generate all 15-digit binary combinations
+states <- NULL
+for(i in 1:32766){
+        x <- intToBits(i)[1:15]
+        states <- rbind(states, x)
+}
+states <- data.frame(states)
+states <- map(states, as.numeric)
+states <- data.frame(states)
+write_csv(states, "game_states.csv")
+
+# create game states represented as strings
+library(stringr)
+states <- read_csv("game_states.csv")
+
+state_list <- NULL
+for(i in seq_along(1:length(states$X1))){
+        pattern <- str_c(as.character(states[i,]), collapse = "")
+        state_list <- rbind(state_list, pattern)
+}
+state_list <- data.frame(state_list)
+
 #---------------------------
 # Step 1: Initialize Game
 #---------------------------
@@ -280,37 +322,15 @@ library(ReinforcementLearning)
                 # The input data must be a dataframe in which each 
                 # row represents a state transition tuple (s,a,r,s_new)."
 
-#------------------------------------------
-# Create list of all possible game states
-#------------------------------------------
 
-# Since the game board can be represented as 15 positions, each with
-# two possible states (0 or 1), we can create a list of all possible states
-# by generating all possible 15-bit binary sequences (excluding the cases where
-# all positions equal 0 or 1, because there are only 14 pegs, and the game ense
-# when there is one peg remaining).
 
-# Theoretically, then, there are 2^15 possible game states. Of course, some
-# other game states may be impossible, but there's no need to
-# simulate thousands of games to find out. 
-
-# calculate number of states
-2^15 - 2 # number of states
-         
-         # 0 and 2^15 are invalid game states
-         # range is 1:32766
-
-# generate all 15-digit binary combinations
-states <- NULL
-for(i in 1:32766){
-        x <- intToBits(i)[1:15]
-        states <- rbind(states, x)
-}
-states <- data.frame(states)
 
 #-------------------------------
-#
+# simulate lots of games and record current state (s), action selected (a), reward received (r), and next state (s_new)
 #-------------------------------
+
+
+
 
 # Step 3: Train Agent to Play Game
 
