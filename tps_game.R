@@ -238,9 +238,9 @@ simulate_peg_game <- function(){
 #--------------------------------------
 
 # simulate 100 games
-set.seed(122)
-peg_data <- rep(NA, 100)
-reps <- 1:100
+set.seed(1288)
+peg_data <- rep(NA, 5000)
+reps <- 1:5000
 for(i in seq_along(reps)){
         peg_data[i] <- simulate_peg_game()
 }
@@ -256,7 +256,7 @@ ggplot(outcomes, aes(peg_data)) +
         theme(legend.position="none") +
         scale_x_continuous(breaks = 1:10)
 
-        # I'm unaware of the history of the game's development (so this could 
+# I'm unaware of the history of the game's development (so this could 
         # be intentional), but it looks like the scoring system listed on the 
         # game board is surprisingly insightful. 
 
@@ -266,7 +266,7 @@ ggplot(outcomes, aes(peg_data)) +
         outcome_sum <- outcomes.t %>%
                 group_by(Result) %>%
                 summarize(Count = n(),
-                          Probability = Count/100)
+                          Probability = Count/5000)
         
         # Here are the probabilities of the outcomes based on a random 
         # guessing strategy
@@ -274,19 +274,23 @@ ggplot(outcomes, aes(peg_data)) +
         # - - - - - - - - - - - - - - -
         # Pegs Remaining | Probability
         # - - - - - - - - - - - - - - - 
-        # 1              | .01
-        # 2              | .14
-        # 3              | .17
-        # 4              | .49
-        # 5              | .17
-        # 6              | .02
+        # 1              | .001
+        # 2              | .036
+        # 3              | .195
+        # 4              | .489
+        # 5              | .211
+        # 6              | .032
+        # 7              | .011
+        # 8              | 0
+        # 9              | 0
+        # 10             | .024
         # - - - - - - - - - - - - - - -
         
         # We can see from the table that the worst score (4+ remaining) will occur
-        # 68% of the time under a random strategy, and the best score (1 remaining) 
-        # is quite rare (1% occurence) when guessing.
+        # ~49% of the time under a random strategy, and the best score (1 remaining) 
+        # is exceptionally rare (0.1% occurence) when guessing.
         
-        # This simulation provides at least some evidence that the game is not 
+        # This simulation provides evidence that the game is not 
         # trivially easy to beat. The goal in the remainder of this project is
         # to train a machine learning system to beat the triangle peg solitaire game,
         # which will reveal the optimal strategy that a human player should adopt.
@@ -396,9 +400,9 @@ simlog_peg_game <- function(){
 set.seed(1518)
 pegsolitaire <- NULL
 reps <- 1:100
-for(i in seq_along(reps)){
+system.time(for(i in seq_along(reps)){
         pegsolitaire <- rbind(pegsolitaire, simlog_peg_game())
-}
+})
 
         
 
