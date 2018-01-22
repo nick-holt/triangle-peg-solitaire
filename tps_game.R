@@ -256,6 +256,8 @@ ggplot(outcomes, aes(peg_data)) +
         theme(legend.position="none") +
         scale_x_continuous(breaks = 1:10)
 
+# write.csv(outcomes, "simulated_outcomes_n=5000.csv")
+
 # I'm unaware of the history of the game's development (so this could 
         # be intentional), but it looks like the scoring system listed on the 
         # game board is surprisingly insightful. 
@@ -319,8 +321,6 @@ prof_sum <- summaryRprof("sim.out")
 
 # install and load the reinforcement learning package
 devtools::install_github("nproellochs/ReinforcementLearning")
-
-library(ReinforcementLearning)
 
         # From the CRAN Description:
 
@@ -397,18 +397,54 @@ simlog_peg_game <- function(){
 #-------------------------------
 # simulate lots of games and record current state (s), action selected (a), reward received (r), and next state (s_new)
 #-------------------------------
-set.seed(1518)
+library(progress)
+set.seed(1918)
 pegsolitaire <- NULL
-reps <- 1:100
+reps <- 1:7000
+pb <- progress_bar$new(format = " simulating [:bar] :percent eta: :eta",
+                       total = length(reps),
+                       clear = FALSE, 
+                       width= 100)
 system.time(for(i in seq_along(reps)){
         pegsolitaire <- rbind(pegsolitaire, simlog_peg_game())
+        pb$tick()
 })
 
-        
+# simlog 2000 games
+# user   system  elapsed 
+# 14360.05     2.69 14370.83
 
+# check to see how many examples of winning games exist in sim data
+pegsolitaire %>% filter(remaining_pegs == 1)
+
+# clean up df %>% to tibble
+pegsolitaire <- as_tibble(pegsolitaire)
+glimpse(pegsolitaire)
+
+# states and actions must be of type character, and rewards must be numeric
+train <- pegsolitaire %>%
+        mutate(State = as.character(begin_state),
+               Action = as.character(action_id),
+               NextState = as.character(end_state),
+               Reward = as.numeric(reward)
+               ) %>%
+        select(State, Action, NextState, Reward)
+
+# write to file
+write_csv(pegsolitaire, "simulated_games_n=7000.csv")
 
 # Step 3: Train Agent to Play Game
+library(ReinforcementLearning)
 
+# Define reinforcement learning parameters
+control <- list(alpha = 0.1, gamma = 0.5, epsilon = 0.1)
+
+# Perform reinforcement learning
+model <- ReinforcementLearning(train, s = "State", a = "Action", r = "Reward", 
+                               s_new = "NextState", control = control)
+
+# Print result
+print(model)
 
 
 # Step 4: Evaluate Success
